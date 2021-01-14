@@ -1,8 +1,9 @@
 package wal
 
-// go test -v -run Test*
+// go test -v -run TestWAL
 
 import (
+  "fmt"
   "io"
   "os"
   "reflect"
@@ -58,4 +59,34 @@ func TestWAL(t *testing.T) {
   if !reflect.DeepEqual(data, log) {
     t.Errorf("want log %v; got %v", data, log)
   }
+}
+
+// go test -bench=.
+
+func benchmark(fsync bool, b *testing.B) {
+  filename := fmt.Sprintf("btest_%t.log", fsync)
+  defer os.Remove(filename)
+  bufferSize := 35
+  maxRecordSize := 15
+  w, err := NewWAL(filename, fsync, bufferSize, maxRecordSize)
+  if err != nil {
+    b.Fatalf("failed to create WAL; %v", err)
+  }
+  data := make([]byte, 12)
+  for i := 0; i < 100; i ++ {
+    if err := w.AddRecord(data); err != nil {
+      b.Fatalf("failed to write data; %v", err)
+    }
+  }
+  if err := w.Close(); err != nil {
+    b.Fatalf("failed to close; %v", err)
+  }
+}
+
+func BenchmarkSyncWAL(b *testing.B) {
+  benchmark(true, b)
+}
+
+func BenchmarkAsyncWAL(b *testing.B) {
+  benchmark(false, b)
 }
